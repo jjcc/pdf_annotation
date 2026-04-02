@@ -3,11 +3,12 @@ import { useEffect, useRef } from 'react';
 interface PdfViewerProps {
   pdfUrl: string;
   pageNumber: number;
+  zoom: number;
   ref: React.MutableRefObject<any>;
   containerRef: React.MutableRefObject<HTMLDivElement | null>;
 }
 
-export default function PdfViewer({ pdfUrl, pageNumber, ref, containerRef }: PdfViewerProps) {
+export default function PdfViewer({ pdfUrl, pageNumber, zoom, ref, containerRef }: PdfViewerProps) {
   useEffect(() => {
     if (!pdfUrl || !containerRef.current) return;
 
@@ -29,11 +30,11 @@ export default function PdfViewer({ pdfUrl, pageNumber, ref, containerRef }: Pdf
     return () => {
       // Cleanup
     };
-  }, [pdfUrl, pageNumber]);
+  }, [pdfUrl, pageNumber, zoom]);
 
   const renderPage = (pdfDoc: any, pageNum: number) => {
     pdfDoc.getPage(pageNum).then((page: any) => {
-      const viewport = page.getViewport({ scale: 1.5 });
+      const viewport = page.getViewport({ scale: zoom });
       const container = containerRef.current;
       if (!container) return;
 

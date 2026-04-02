@@ -13,6 +13,7 @@ export default function Home() {
   const [annotations, setAnnotations] = useState<Record<number, Annotation[]>>({});
   const [selectedAnnotationId, setSelectedAnnotationId] = useState<string | null>(null);
   const [isDrawing, setIsDrawing] = useState<boolean>(false);
+  const [zoom, setZoom] = useState<number>(1.5);
   const pdfRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -81,11 +82,12 @@ export default function Home() {
   };
 
   const handleExport = () => {
-    const fields = Object.values(annotations).flat().map(({ id: _id, page: _page, ...rest }) => ({
+    const fields = Object.values(annotations).flat().map(({ id: _id, ...rest }) => ({
       name: rest.name,
       bbox: { x: rest.x, y: rest.y, w: rest.width, h: rest.height },
       pattern: rest.regex,
       anchor: rest.anchor,
+      page: rest.page,
     }));
     const blob = new Blob([JSON.stringify({ fields }, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -145,6 +147,22 @@ export default function Home() {
                 {isDrawing ? '✏ Drawing — click & drag on PDF' : '+ Draw Rectangle'}
               </button>
 
+              <div className="flex items-center gap-1 text-sm text-gray-600">
+                <button
+                  onClick={() => setZoom(z => Math.max(0.5, +(z - 0.25).toFixed(2)))}
+                  className="px-2 py-1 rounded border border-gray-300 hover:bg-gray-100"
+                >
+                  −
+                </button>
+                <span className="w-12 text-center">{Math.round(zoom * 100)}%</span>
+                <button
+                  onClick={() => setZoom(z => Math.min(4, +(z + 0.25).toFixed(2)))}
+                  className="px-2 py-1 rounded border border-gray-300 hover:bg-gray-100"
+                >
+                  +
+                </button>
+              </div>
+
               <div className="flex items-center gap-2 ml-auto text-sm text-gray-600">
                 <button
                   onClick={() => handlePageChange(-1)}
@@ -184,12 +202,14 @@ export default function Home() {
                 <PdfViewer
                   pdfUrl={pdfUrl}
                   pageNumber={currentPage}
+                  zoom={zoom}
                   ref={pdfRef}
                   containerRef={containerRef}
                 />
                 <CanvasOverlay
                   pdfUrl={pdfUrl}
                   pageNumber={currentPage}
+                  zoom={zoom}
                   annotations={pageAnnotations}
                   selectedAnnotationId={selectedAnnotationId}
                   isDrawing={isDrawing}

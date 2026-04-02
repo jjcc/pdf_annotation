@@ -5,6 +5,7 @@ import { Annotation } from './types';
 interface CanvasOverlayProps {
   pdfUrl: string;
   pageNumber: number;
+  zoom: number;
   annotations: Annotation[];
   selectedAnnotationId: string | null;
   isDrawing: boolean;
@@ -19,6 +20,7 @@ interface CanvasOverlayProps {
 export default function CanvasOverlay({
   pdfUrl,
   pageNumber,
+  zoom,
   annotations,
   selectedAnnotationId,
   isDrawing,
@@ -47,14 +49,14 @@ export default function CanvasOverlay({
     import('pdfjs-dist').then(({ getDocument }) => {
       getDocument(pdfUrl).promise.then((pdfDoc: any) => {
         pdfDoc.getPage(pageNumber).then((page: any) => {
-          const viewport = page.getViewport({ scale: 1.5 });
+          const viewport = page.getViewport({ scale: zoom });
           // viewport.width/height are the canvas pixel dimensions — do NOT multiply by scale again
           setCanvasWidth(viewport.width);
           setCanvasHeight(viewport.height);
         });
       });
     });
-  }, [pdfUrl, pageNumber]);
+  }, [pdfUrl, pageNumber, zoom]);
 
   // Attach transformer to selected node
   useEffect(() => {
