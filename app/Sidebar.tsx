@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Annotation } from './types';
 
 interface SidebarProps {
@@ -11,6 +11,12 @@ export default function Sidebar({ annotation, onUpdate, onDelete }: SidebarProps
   const [name, setName] = useState(annotation?.name || '');
   const [regex, setRegex] = useState(annotation?.regex || '');
   const [anchor, setAnchor] = useState<Annotation['anchor']>(annotation?.anchor || 'top-left');
+
+  useEffect(() => {
+    setName(annotation?.name || '');
+    setRegex(annotation?.regex || '');
+    setAnchor(annotation?.anchor || 'top-left');
+  }, [annotation?.id]);
 
   const handleSave = () => {
     if (!annotation) return;
@@ -25,9 +31,8 @@ export default function Sidebar({ annotation, onUpdate, onDelete }: SidebarProps
 
   if (!annotation) {
     return (
-      <div className="p-4">
-        <h3 className="text-lg font-semibold mb-4">Select an annotation</h3>
-        <p className="text-gray-500">Click on a field to edit its properties</p>
+      <div className="p-4 text-sm text-gray-400">
+        <p>Select a field above, or draw a new rectangle on the PDF.</p>
       </div>
     );
   }

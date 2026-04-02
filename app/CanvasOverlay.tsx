@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useCallback, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Stage, Layer, Rect, Transformer } from 'react-konva';
 import { Annotation } from './types';
 
@@ -32,196 +32,168 @@ export default function CanvasOverlay({
   const stageRef = useRef<any>(null);
   const layerRef = useRef<any>(null);
   const transformerRef = useRef<any>(null);
+
+  // Canvas pixel dimensions (viewport.width/height are already scaled by pdfjs)
+  const [canvasWidth, setCanvasWidth] = useState<number>(800);
+  const [canvasHeight, setCanvasHeight] = useState<number>(1000);
+
+  // Drawing state (in canvas pixel coords)
   const [isSelecting, setIsSelecting] = useState(false);
   const [startPos, setStartPos] = useState({ x: 0, y: 0 });
-  const [currentRect, setCurrentRect] = useState<Omit<Annotation, 'id'> | null>(null);
-
-  // Store PDF dimensions for coordinate conversion
-  const [pageWidth, setPageWidth] = useState<number>(800);
-  const [pageHeight, setPageHeight] = useState<number>(1000);
-  const [scale, setScale] = useState<number>(1.5);
-
-  // Convert PDF coordinates to canvas coordinates
-  const pdfToCanvas = useCallback((pdfX: number, pdfY: number) => {
-    return {
-      x: pdfX * scale,
-      y: pdfY * scale
-    };
-  }, [scale]);
-
-  // Convert canvas coordinates to PDF coordinates (normalized 0-1)
-  const canvasToPdf = useCallback((canvasX: number, canvasY: number) => {
-    return {
-      x: canvasX / (pageWidth * scale),
-      y: canvasY / (pageHeight * scale)
-    };
-  }, [pageWidth, pageHeight, scale]);
+  const [drawRect, setDrawRect] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
 
   useEffect(() => {
-    if (!pdfUrl || !containerRef.current) return;
-
-    // Load PDF to get dimensions for proper scaling
+    if (!pdfUrl) return;
     import('pdfjs-dist').then(({ getDocument }) => {
       getDocument(pdfUrl).promise.then((pdfDoc: any) => {
         pdfDoc.getPage(pageNumber).then((page: any) => {
           const viewport = page.getViewport({ scale: 1.5 });
-          setScale(viewport.scale);
-          setPageWidth(viewport.width);
-          setPageHeight(viewport.height);
-          
-          // Update stage size to match PDF viewport
-          if (stageRef.current) {
-            stageRef.current.width(viewport.width);
-            stageRef.current.height(viewport.height);
-          }
+          // viewport.width/height are the canvas pixel dimensions — do NOT multiply by scale again
+          setCanvasWidth(viewport.width);
+          setCanvasHeight(viewport.height);
         });
       });
     });
   }, [pdfUrl, pageNumber]);
 
-  const handleStageMouseDown = (e: any) => {
-    if (!isDrawing) return;
+  // Attach transformer to selected node
+  useEffect(() => {
+    if (!transformerRef.current || !layerRef.current) return;
+    if (selectedAnnotationId) {
+      const node = layerRef.current.findOne(`#${selectedAnnotationId}`);
+      transformerRef.current.nodes(node ? [node] : []);
+    } else {
+      transformerRef.current.nodes([]);
+    }
+    transformerRef.current.getLayer()?.batchDraw();
+  }, [selectedAnnotationId, annotations]);
 
-    const stage = stageRef.current;
-    const pointerPos = stage.getPointerPosition();
+  const handleStageMouseDown = (e: any) => {
+    if (!isDrawing) {
+      // Deselect when clicking empty stage area
+      if (e.target === stageRef.current) {
+        onAnnotationSelected(null);
+      }
+      return;
+    }
+
+    const pointerPos = stageRef.current.getPointerPosition();
     if (!pointerPos) return;
 
     setIsSelecting(true);
     setStartPos(pointerPos);
-    
-    // Create a temporary rectangle
-    const pdfPos = canvasToPdf(pointerPos.x, pointerPos.y);
-    
-    const tempAnnotation: Omit<Annotation, 'id'> = {
-      name: `Field ${annotations.length + 1}`,
-      regex: '',
-      anchor: 'top-left',
-      x: pdfPos.x,
-      y: pdfPos.y,
-      width: 0.001, // Minimal initial size
-      height: 0.001, // Minimal initial size
-      page: pageNumber
-    };
-    
-    setCurrentRect(tempAnnotation);
+    setDrawRect({ x: pointerPos.x, y: pointerPos.y, width: 0, height: 0 });
   };
 
   const handleStageMouseMove = (e: any) => {
     if (!isSelecting || !isDrawing) return;
 
-    const stage = stageRef.current;
-    const pointerPos = stage.getPointerPosition();
+    const pointerPos = stageRef.current.getPointerPosition();
     if (!pointerPos) return;
 
-    const start = startPos;
-    
-    // Calculate rectangle dimensions in PDF coordinates
-    const pdfStart = canvasToPdf(start.x, start.y);
-    const pdfEnd = canvasToPdf(pointerPos.x, pointerPos.y);
-    
-    const normalizedX = Math.min(pdfStart.x, pdfEnd.x);
-    const normalizedY = Math.min(pdfStart.y, pdfEnd.y);
-    const normalizedWidth = Math.abs(pdfEnd.x - pdfStart.x);
-    const normalizedHeight = Math.abs(pdfEnd.y - pdfStart.y);
-    
-    // Update current rectangle
-    if (currentRect) {
-      const updatedRect: Omit<Annotation, 'id'> = {
-        ...currentRect,
-        x: normalizedX,
-        y: normalizedY,
-        width: normalizedWidth,
-        height: normalizedHeight
-      };
-      setCurrentRect(updatedRect);
-    }
+    setDrawRect({
+      x: Math.min(startPos.x, pointerPos.x),
+      y: Math.min(startPos.y, pointerPos.y),
+      width: Math.abs(pointerPos.x - startPos.x),
+      height: Math.abs(pointerPos.y - startPos.y),
+    });
   };
 
-  const handleStageMouseUp = (e: any) => {
-    if (!isSelecting || !isDrawing) return;
-    
+  const handleStageMouseUp = () => {
+    if (!isSelecting || !isDrawing || !drawRect) return;
+
     setIsSelecting(false);
-    
-    // Add the completed rectangle as an annotation
-    if (currentRect && currentRect.width > 0.001 && currentRect.height > 0.001) {
-      onAnnotationAdded(currentRect);
+    setDrawRect(null);
+
+    if (drawRect.width > 5 && drawRect.height > 5) {
+      onAnnotationAdded({
+        name: `Field ${annotations.length + 1}`,
+        regex: '',
+        anchor: 'top-left',
+        x: drawRect.x / canvasWidth,
+        y: drawRect.y / canvasHeight,
+        width: drawRect.width / canvasWidth,
+        height: drawRect.height / canvasHeight,
+        page: pageNumber,
+      });
     }
-    
-    // Reset current rectangle
-    setCurrentRect(null);
-    onDrawingToggle(false); // Exit drawing mode after creating annotation
+
+    onDrawingToggle(false);
   };
 
-  const handleRectangleChange = (rect: any) => {
-    if (!selectedAnnotationId) return;
-
-    // Find the existing annotation to preserve non-geometric properties
-    const existingAnnotation = annotations.find(a => a.id === selectedAnnotationId);
-    if (!existingAnnotation) return;
-
-    // Convert from canvas to normalized PDF coordinates (0-1 range)
-    const normalizedX = rect.x() / (pageWidth * scale);
-    const normalizedY = rect.y() / (pageHeight * scale);
-    const normalizedWidth = rect.width() / (pageWidth * scale);
-    const normalizedHeight = rect.height() / (pageHeight * scale);
-
+  const handleDragEnd = (e: any, annotation: Annotation) => {
+    const node = e.target;
     onAnnotationUpdated({
-      ...existingAnnotation, // Preserve all existing properties
-      x: normalizedX,
-      y: normalizedY,
-      width: normalizedWidth,
-      height: normalizedHeight
+      ...annotation,
+      x: node.x() / canvasWidth,
+      y: node.y() / canvasHeight,
+    });
+  };
+
+  const handleTransformEnd = (e: any, annotation: Annotation) => {
+    const node = e.target;
+    const scaleX = node.scaleX();
+    const scaleY = node.scaleY();
+    // Reset scale back to 1 and bake it into width/height
+    node.scaleX(1);
+    node.scaleY(1);
+    onAnnotationUpdated({
+      ...annotation,
+      x: node.x() / canvasWidth,
+      y: node.y() / canvasHeight,
+      width: (node.width() * scaleX) / canvasWidth,
+      height: (node.height() * scaleY) / canvasHeight,
     });
   };
 
   return (
     <Stage
       ref={stageRef}
-      width={pageWidth * scale}
-      height={pageHeight * scale}
+      width={canvasWidth}
+      height={canvasHeight}
       onMouseDown={handleStageMouseDown}
       onMouseMove={handleStageMouseMove}
       onMouseUp={handleStageMouseUp}
       className="absolute inset-0"
+      style={{ cursor: isDrawing ? 'crosshair' : 'default' }}
     >
       <Layer ref={layerRef}>
         {annotations.map((annotation) => (
-          <React.Fragment key={annotation.id}>
-            <Rect
-              x={annotation.x * pageWidth * scale} // Denormalize for display
-              y={annotation.y * pageHeight * scale}
-              width={annotation.width * pageWidth * scale}
-              height={annotation.height * pageHeight * scale}
-              fill="rgba(0, 123, 255, 0.2)"
-              stroke="rgba(0, 123, 255, 0.5)"
-              strokeWidth={2}
-              draggable={true}
-              id={annotation.id}
-              onDragEnd={handleRectangleChange}
-            />
-            {selectedAnnotationId === annotation.id && (
-              <Transformer
-                ref={transformerRef}
-                nodes={[layerRef.current.findOne(`#${annotation.id}`) as any]}
-                boundBoxFunc={(oldRect: any, newRect: any) => {
-                  handleRectangleChange(newRect);
-                  return newRect;
-                }}
-              />
-            )}
-          </React.Fragment>
-        ))}
-        {/* Display current rectangle being drawn */}
-        {isSelecting && currentRect && (
           <Rect
-            x={currentRect.x * pageWidth * scale}
-            y={currentRect.y * pageHeight * scale}
-            width={currentRect.width * pageWidth * scale}
-            height={currentRect.height * pageHeight * scale}
+            key={annotation.id}
+            id={annotation.id}
+            x={annotation.x * canvasWidth}
+            y={annotation.y * canvasHeight}
+            width={annotation.width * canvasWidth}
+            height={annotation.height * canvasHeight}
             fill="rgba(0, 123, 255, 0.2)"
-            stroke="rgba(0, 123, 255, 0.8)"
+            stroke={selectedAnnotationId === annotation.id ? 'rgba(0, 80, 200, 0.9)' : 'rgba(0, 123, 255, 0.6)'}
+            strokeWidth={2}
+            draggable={!isDrawing}
+            onClick={() => !isDrawing && onAnnotationSelected(annotation.id)}
+            onDragEnd={(e) => handleDragEnd(e, annotation)}
+            onTransformEnd={(e) => handleTransformEnd(e, annotation)}
+          />
+        ))}
+        <Transformer
+          ref={transformerRef}
+          boundBoxFunc={(oldBox, newBox) => {
+            // Enforce minimum size
+            if (newBox.width < 5 || newBox.height < 5) return oldBox;
+            return newBox;
+          }}
+        />
+        {isSelecting && drawRect && (
+          <Rect
+            x={drawRect.x}
+            y={drawRect.y}
+            width={drawRect.width}
+            height={drawRect.height}
+            fill="rgba(0, 123, 255, 0.15)"
+            stroke="rgba(0, 123, 255, 0.9)"
             strokeWidth={2}
             dash={[5, 5]}
+            listening={false}
           />
         )}
       </Layer>

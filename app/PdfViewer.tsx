@@ -12,7 +12,11 @@ export default function PdfViewer({ pdfUrl, pageNumber, ref, containerRef }: Pdf
     if (!pdfUrl || !containerRef.current) return;
 
     // Dynamically import pdfjs-dist to avoid SSR issues
-    import('pdfjs-dist').then(({ getDocument }) => {
+    import('pdfjs-dist').then(({ getDocument, GlobalWorkerOptions }) => {
+      GlobalWorkerOptions.workerSrc = new URL(
+        'pdfjs-dist/build/pdf.worker.min.mjs',
+        import.meta.url
+      ).toString();
       const loadingTask = getDocument(pdfUrl);
       loadingTask.promise.then((pdfDoc: any) => {
         ref.current = pdfDoc;
@@ -55,7 +59,7 @@ export default function PdfViewer({ pdfUrl, pageNumber, ref, containerRef }: Pdf
 
   return (
     <div className="flex-1 overflow-auto bg-gray-100">
-      <div ref={containerRef} className="w-full h-full flex items-center justify-center">
+      <div ref={containerRef} className="w-full h-full">
         {/* Canvas will be injected here */}
       </div>
     </div>
