@@ -3,11 +3,12 @@ import { Annotation } from './types';
 
 interface SidebarProps {
   annotation: Annotation | null;
+  isDark: boolean;
   onUpdate: (annotation: Annotation) => void;
   onDelete: (id: string) => void;
 }
 
-export default function Sidebar({ annotation, onUpdate, onDelete }: SidebarProps) {
+export default function Sidebar({ annotation, isDark: dk, onUpdate, onDelete }: SidebarProps) {
   const [name, setName] = useState(annotation?.name || '');
   const [regex, setRegex] = useState(annotation?.regex || '');
   const [anchor, setAnchor] = useState<Annotation['anchor']>(annotation?.anchor || 'top-left');
@@ -23,21 +24,37 @@ export default function Sidebar({ annotation, onUpdate, onDelete }: SidebarProps
     onUpdate({ ...annotation, name, regex, anchor });
   };
 
+  // Theme tokens
+  const emptyIcon  = dk ? 'bg-slate-800'                                        : 'bg-slate-100';
+  const emptyTxt   = dk ? 'text-slate-500'                                      : 'text-slate-400';
+  const heading    = dk ? 'text-slate-400'                                      : 'text-slate-500';
+  const labelCls   = `block text-xs font-medium uppercase tracking-wider mb-1.5 ${heading}`;
+  const inputCls   = dk
+    ? 'w-full px-3 py-2 text-sm text-slate-200 bg-slate-800 border border-slate-700 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 placeholder-slate-600 transition-colors'
+    : 'w-full px-3 py-2 text-sm text-slate-800 bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 placeholder-slate-400 transition-colors';
+  const anchorOff  = dk
+    ? 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-600 hover:text-slate-300'
+    : 'bg-white border-slate-300 text-slate-600 hover:border-slate-400 hover:text-slate-800';
+  const bboxCell   = dk
+    ? 'bg-slate-800 border-slate-700 text-slate-400'
+    : 'bg-white border-slate-300 text-slate-600';
+  const bboxKey    = dk ? 'text-slate-500' : 'text-slate-400';
+  const deleteBtn  = dk
+    ? 'text-red-400 bg-slate-800 hover:bg-red-950 hover:text-red-300 border border-slate-700 hover:border-red-900'
+    : 'text-red-500 bg-white hover:bg-red-50 hover:text-red-600 border border-slate-200 hover:border-red-300';
+
   if (!annotation) {
     return (
       <div className="flex flex-col items-center justify-center h-full px-4 py-8 text-center">
-        <div className="w-10 h-10 rounded-lg bg-slate-800 flex items-center justify-center mb-3">
+        <div className={`w-10 h-10 rounded-lg flex items-center justify-center mb-3 ${emptyIcon}`}>
           <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-            <rect x="2" y="2" width="14" height="14" rx="2" stroke="#475569" strokeWidth="1.5" strokeDasharray="3 2"/>
+            <rect x="2" y="2" width="14" height="14" rx="2" stroke={dk ? '#475569' : '#94a3b8'} strokeWidth="1.5" strokeDasharray="3 2"/>
           </svg>
         </div>
-        <p className="text-sm text-slate-500">Select a field to edit its properties</p>
+        <p className={`text-sm ${emptyTxt}`}>Select a field to edit its properties</p>
       </div>
     );
   }
-
-  const labelCls = "block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1.5";
-  const inputCls = "w-full px-3 py-2 text-sm text-slate-200 bg-slate-800 border border-slate-700 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 placeholder-slate-600 transition-colors";
 
   const anchorOptions: { value: Annotation['anchor']; label: string }[] = [
     { value: 'top-left',     label: 'TL' },
@@ -49,7 +66,7 @@ export default function Sidebar({ annotation, onUpdate, onDelete }: SidebarProps
   return (
     <div className="p-4 space-y-5">
       <div>
-        <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-4">Properties</p>
+        <p className={`text-xs font-semibold uppercase tracking-widest mb-4 ${heading}`}>Properties</p>
 
         <div className="space-y-4">
           <div>
@@ -84,8 +101,8 @@ export default function Sidebar({ annotation, onUpdate, onDelete }: SidebarProps
                   onClick={() => setAnchor(opt.value)}
                   className={`py-2 text-xs font-medium rounded-lg border transition-colors ${
                     anchor === opt.value
-                      ? 'bg-indigo-600/30 border-indigo-500 text-indigo-300'
-                      : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-600 hover:text-slate-300'
+                      ? 'bg-indigo-600/30 border-indigo-500 text-indigo-400'
+                      : anchorOff
                   }`}
                 >
                   {opt.label}
@@ -98,12 +115,12 @@ export default function Sidebar({ annotation, onUpdate, onDelete }: SidebarProps
           <div>
             <label className={labelCls}>Bounding box</label>
             <div className="grid grid-cols-2 gap-1.5">
-              {(['x','y','w','h'] as const).map((key) => {
-                const val = key === 'w' ? annotation.width : key === 'h' ? annotation.height : annotation[key as 'x'|'y'];
+              {(['x', 'y', 'w', 'h'] as const).map(key => {
+                const val = key === 'w' ? annotation.width : key === 'h' ? annotation.height : annotation[key as 'x' | 'y'];
                 return (
-                  <div key={key} className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-800 rounded-lg border border-slate-700">
-                    <span className="text-[10px] font-bold text-slate-500 uppercase w-3">{key}</span>
-                    <span className="text-xs text-slate-400 tabular-nums">{val.toFixed(3)}</span>
+                  <div key={key} className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border ${bboxCell}`}>
+                    <span className={`text-[10px] font-bold uppercase w-3 ${bboxKey}`}>{key}</span>
+                    <span className="text-xs tabular-nums">{val.toFixed(3)}</span>
                   </div>
                 );
               })}
@@ -121,7 +138,7 @@ export default function Sidebar({ annotation, onUpdate, onDelete }: SidebarProps
         </button>
         <button
           onClick={() => onDelete(annotation.id)}
-          className="px-3 py-2 text-xs font-semibold text-red-400 bg-slate-800 hover:bg-red-950 hover:text-red-300 border border-slate-700 hover:border-red-900 rounded-lg transition-colors"
+          className={`px-3 py-2 text-xs font-semibold rounded-lg transition-colors ${deleteBtn}`}
         >
           Delete
         </button>
