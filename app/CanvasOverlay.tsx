@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Stage, Layer, Rect, Transformer } from 'react-konva';
 import { Annotation } from './types';
 
@@ -14,7 +14,7 @@ interface CanvasOverlayProps {
   onAnnotationDeleted: (id: string) => void;
   onAnnotationSelected: (id: string | null) => void;
   onDrawingToggle: (isDrawing: boolean) => void;
-  containerRef: React.MutableRefObject<HTMLDivElement | null>;
+  containerRef: React.RefObject<HTMLDivElement | null>;
 }
 
 export default function CanvasOverlay({
@@ -26,10 +26,8 @@ export default function CanvasOverlay({
   isDrawing,
   onAnnotationAdded,
   onAnnotationUpdated,
-  onAnnotationDeleted,
   onAnnotationSelected,
   onDrawingToggle,
-  containerRef
 }: CanvasOverlayProps) {
   const stageRef = useRef<any>(null);
   const layerRef = useRef<any>(null);
@@ -87,7 +85,7 @@ export default function CanvasOverlay({
     setDrawRect({ x: pointerPos.x, y: pointerPos.y, width: 0, height: 0 });
   };
 
-  const handleStageMouseMove = (e: any) => {
+  const handleStageMouseMove = (_e: any) => {
     if (!isSelecting || !isDrawing) return;
 
     const pointerPos = stageRef.current.getPointerPosition();
@@ -168,8 +166,8 @@ export default function CanvasOverlay({
             y={annotation.y * canvasHeight}
             width={annotation.width * canvasWidth}
             height={annotation.height * canvasHeight}
-            fill="rgba(0, 123, 255, 0.2)"
-            stroke={selectedAnnotationId === annotation.id ? 'rgba(0, 80, 200, 0.9)' : 'rgba(0, 123, 255, 0.6)'}
+            fill="rgba(99, 102, 241, 0.15)"
+            stroke={selectedAnnotationId === annotation.id ? 'rgba(129, 140, 248, 1)' : 'rgba(99, 102, 241, 0.7)'}
             strokeWidth={2}
             draggable={!isDrawing}
             onClick={() => !isDrawing && onAnnotationSelected(annotation.id)}
@@ -191,8 +189,8 @@ export default function CanvasOverlay({
             y={drawRect.y}
             width={drawRect.width}
             height={drawRect.height}
-            fill="rgba(0, 123, 255, 0.15)"
-            stroke="rgba(0, 123, 255, 0.9)"
+            fill="rgba(99, 102, 241, 0.1)"
+            stroke="rgba(129, 140, 248, 0.9)"
             strokeWidth={2}
             dash={[5, 5]}
             listening={false}

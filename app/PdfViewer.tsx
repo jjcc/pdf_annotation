@@ -4,8 +4,8 @@ interface PdfViewerProps {
   pdfUrl: string;
   pageNumber: number;
   zoom: number;
-  ref: React.MutableRefObject<any>;
-  containerRef: React.MutableRefObject<HTMLDivElement | null>;
+  ref: React.RefObject<any>;
+  containerRef: React.RefObject<HTMLDivElement | null>;
 }
 
 export default function PdfViewer({ pdfUrl, pageNumber, zoom, ref, containerRef }: PdfViewerProps) {

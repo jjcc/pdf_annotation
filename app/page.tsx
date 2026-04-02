@@ -98,165 +98,230 @@ export default function Home() {
     URL.revokeObjectURL(url);
   };
 
+  const totalFields = Object.values(annotations).flat().length;
   const pageAnnotations = annotations[currentPage] || [];
   const selectedAnnotation = pageAnnotations.find(a => a.id === selectedAnnotationId) ?? null;
 
   return (
-    <div className="flex flex-col h-screen bg-gray-50">
-      {/* Header */}
-      <header className="flex items-center justify-between bg-white shadow px-6 py-3 shrink-0">
-        <h1 className="text-lg font-bold">PDF Field Annotator</h1>
+    <div className="flex flex-col h-screen bg-slate-950 font-sans">
+
+      {/* ── Top bar ── */}
+      <header className="flex items-center justify-between px-5 h-12 bg-slate-900 border-b border-slate-800 shrink-0">
         <div className="flex items-center gap-3">
-          <input
-            type="file"
-            accept=".pdf"
-            className="hidden"
-            id="pdf-upload"
-            onChange={handleFileUpload}
-          />
+          {/* Logo mark */}
+          <div className="w-6 h-6 rounded bg-indigo-500 flex items-center justify-center">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <rect x="1" y="1" width="5" height="5" rx="1" fill="white" fillOpacity="0.9"/>
+              <rect x="8" y="1" width="5" height="5" rx="1" fill="white" fillOpacity="0.5"/>
+              <rect x="1" y="8" width="5" height="5" rx="1" fill="white" fillOpacity="0.5"/>
+              <rect x="8" y="8" width="5" height="5" rx="1" fill="white" fillOpacity="0.2"/>
+            </svg>
+          </div>
+          <span className="text-sm font-semibold text-white tracking-tight">FieldMapper</span>
+          {pdfUrl && (
+            <span className="text-slate-500 text-xs">/</span>
+          )}
+          {pdfUrl && (
+            <span className="text-slate-400 text-xs truncate max-w-[200px]">
+              {totalFields} field{totalFields !== 1 ? 's' : ''} defined
+            </span>
+          )}
+        </div>
+
+        <div className="flex items-center gap-2">
+          <input type="file" accept=".pdf" className="hidden" id="pdf-upload" onChange={handleFileUpload} />
           <label
             htmlFor="pdf-upload"
-            className="cursor-pointer px-4 py-2 bg-gray-100 border border-gray-300 rounded-md text-sm hover:bg-gray-200"
+            className="cursor-pointer flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-300 bg-slate-800 hover:bg-slate-700 rounded-md border border-slate-700 transition-colors"
           >
-            {pdfUrl ? 'Replace PDF' : 'Upload PDF'}
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
+              <path d="M2 12.5V14h12v-1.5M8 2v9m0-9L5 5m3-3 3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            {pdfUrl ? 'Replace PDF' : 'Open PDF'}
           </label>
           <button
             onClick={handleExport}
-            disabled={!pdfUrl}
-            className="px-4 py-2 bg-green-600 text-white rounded-md text-sm hover:bg-green-700 disabled:opacity-40"
+            disabled={!pdfUrl || totalFields === 0}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-indigo-600 hover:bg-indigo-500 disabled:opacity-30 disabled:cursor-not-allowed rounded-md transition-colors"
           >
-            Export schema.json
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
+              <path d="M3 9.5V13h10V9.5M8 2.5v7m0 0-2.5-2.5M8 9.5l2.5-2.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            Export JSON
           </button>
         </div>
       </header>
 
       <main className="flex-1 flex overflow-hidden">
-        {/* Left: PDF area */}
+
+        {/* ── Canvas column ── */}
         <div className="flex-1 flex flex-col overflow-hidden">
-          {pdfUrl && (
-            /* Toolbar above PDF */
-            <div className="flex items-center gap-4 px-4 py-2 bg-white border-b border-gray-200 shrink-0">
+
+          {/* Canvas toolbar */}
+          <div className="flex items-center gap-1 px-4 h-11 bg-slate-900 border-b border-slate-800 shrink-0">
+
+            {/* Draw tool */}
+            <button
+              onClick={() => setIsDrawing(d => !d)}
+              title={isDrawing ? 'Exit draw mode (Esc)' : 'Draw rectangle'}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                isDrawing
+                  ? 'bg-indigo-600 text-white'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+              }`}
+            >
+              <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
+                <rect x="2" y="2" width="12" height="12" rx="1.5" stroke="currentColor" strokeWidth="1.5" strokeDasharray={isDrawing ? undefined : "3 2"}/>
+                {isDrawing && <path d="M5.5 8H10.5M8 5.5V10.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>}
+              </svg>
+              {isDrawing ? 'Drawing…' : 'Draw Field'}
+            </button>
+
+            <div className="w-px h-5 bg-slate-700 mx-1" />
+
+            {/* Zoom */}
+            <div className="flex items-center gap-1">
               <button
-                onClick={() => setIsDrawing(d => !d)}
-                className={`px-4 py-1.5 rounded-md text-sm font-medium border ${
-                  isDrawing
-                    ? 'bg-blue-600 text-white border-blue-600'
-                    : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-                }`}
+                onClick={() => setZoom(z => Math.max(0.5, +(z - 0.25).toFixed(2)))}
+                className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800 rounded text-base leading-none transition-colors"
+              >−</button>
+              <button
+                onClick={() => setZoom(1.5)}
+                className="w-12 h-7 text-xs text-slate-400 hover:text-white hover:bg-slate-800 rounded transition-colors"
               >
-                {isDrawing ? '✏ Drawing — click & drag on PDF' : '+ Draw Rectangle'}
+                {Math.round(zoom * 100)}%
               </button>
+              <button
+                onClick={() => setZoom(z => Math.min(4, +(z + 0.25).toFixed(2)))}
+                className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800 rounded text-base leading-none transition-colors"
+              >+</button>
+            </div>
 
-              <div className="flex items-center gap-1 text-sm text-gray-600">
-                <button
-                  onClick={() => setZoom(z => Math.max(0.5, +(z - 0.25).toFixed(2)))}
-                  className="px-2 py-1 rounded border border-gray-300 hover:bg-gray-100"
-                >
-                  −
-                </button>
-                <span className="w-12 text-center">{Math.round(zoom * 100)}%</span>
-                <button
-                  onClick={() => setZoom(z => Math.min(4, +(z + 0.25).toFixed(2)))}
-                  className="px-2 py-1 rounded border border-gray-300 hover:bg-gray-100"
-                >
-                  +
-                </button>
-              </div>
-
-              <div className="flex items-center gap-2 ml-auto text-sm text-gray-600">
+            {/* Page nav — pushed to right */}
+            {pdfUrl && (
+              <div className="flex items-center gap-2 ml-auto">
                 <button
                   onClick={() => handlePageChange(-1)}
                   disabled={currentPage <= 1}
-                  className="px-2 py-1 rounded border border-gray-300 hover:bg-gray-100 disabled:opacity-40"
+                  className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800 rounded disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                 >
-                  ←
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                    <path d="M7.5 2L4 6l3.5 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
                 </button>
-                <span>Page {currentPage}{numPages ? ` / ${numPages}` : ''}</span>
+                <span className="text-xs text-slate-400 tabular-nums">
+                  {currentPage}<span className="text-slate-600"> / {numPages ?? '—'}</span>
+                </span>
                 <button
                   onClick={() => handlePageChange(1)}
                   disabled={numPages === null || currentPage >= numPages}
-                  className="px-2 py-1 rounded border border-gray-300 hover:bg-gray-100 disabled:opacity-40"
+                  className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800 rounded disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                 >
-                  →
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                    <path d="M4.5 2L8 6l-3.5 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
                 </button>
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
-          {/* PDF + overlay */}
-          <div className="flex-1 overflow-auto relative">
+          {/* PDF canvas */}
+          <div className="flex-1 overflow-auto relative bg-slate-950"
+               style={{ backgroundImage: 'radial-gradient(circle, #334155 1px, transparent 1px)', backgroundSize: '24px 24px' }}>
             {!pdfUrl ? (
               <div className="flex h-full items-center justify-center">
-                <div className="border-2 border-dashed border-gray-300 rounded-xl p-12 text-center bg-white max-w-sm">
-                  <p className="text-gray-400 mb-4">No PDF loaded</p>
+                <div className="text-center">
+                  <div className="w-16 h-16 rounded-2xl bg-slate-800 border border-slate-700 flex items-center justify-center mx-auto mb-5">
+                    <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+                      <path d="M7 6a2 2 0 0 1 2-2h8l6 6v12a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V6z" stroke="#6366f1" strokeWidth="1.5"/>
+                      <path d="M17 4v6h6" stroke="#6366f1" strokeWidth="1.5" strokeLinecap="round"/>
+                      <path d="M14 13v6m0-6-2 2m2-2 2 2" stroke="#6366f1" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  </div>
+                  <p className="text-slate-300 font-medium mb-1">No document open</p>
+                  <p className="text-slate-500 text-sm mb-5">Upload a PDF to start defining fields</p>
                   <label
                     htmlFor="pdf-upload"
-                    className="cursor-pointer px-5 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                    className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-500 rounded-lg transition-colors"
                   >
-                    Upload PDF
+                    Open PDF
                   </label>
                 </div>
               </div>
             ) : (
-              <>
-                <PdfViewer
-                  pdfUrl={pdfUrl}
-                  pageNumber={currentPage}
-                  zoom={zoom}
-                  ref={pdfRef}
-                  containerRef={containerRef}
-                />
-                <CanvasOverlay
-                  pdfUrl={pdfUrl}
-                  pageNumber={currentPage}
-                  zoom={zoom}
-                  annotations={pageAnnotations}
-                  selectedAnnotationId={selectedAnnotationId}
-                  isDrawing={isDrawing}
-                  onAnnotationAdded={handleAddAnnotation}
-                  onAnnotationUpdated={handleUpdateAnnotation}
-                  onAnnotationDeleted={handleDeleteAnnotation}
-                  onAnnotationSelected={setSelectedAnnotationId}
-                  onDrawingToggle={setIsDrawing}
-                  containerRef={containerRef}
-                />
-              </>
+              <div className="p-8">
+                <div className="relative inline-block shadow-2xl">
+                  <PdfViewer
+                    pdfUrl={pdfUrl}
+                    pageNumber={currentPage}
+                    zoom={zoom}
+                    ref={pdfRef}
+                    containerRef={containerRef}
+                  />
+                  <CanvasOverlay
+                    pdfUrl={pdfUrl}
+                    pageNumber={currentPage}
+                    zoom={zoom}
+                    annotations={pageAnnotations}
+                    selectedAnnotationId={selectedAnnotationId}
+                    isDrawing={isDrawing}
+                    onAnnotationAdded={handleAddAnnotation}
+                    onAnnotationUpdated={handleUpdateAnnotation}
+                    onAnnotationDeleted={handleDeleteAnnotation}
+                    onAnnotationSelected={setSelectedAnnotationId}
+                    onDrawingToggle={setIsDrawing}
+                    containerRef={containerRef}
+                  />
+                </div>
+              </div>
             )}
           </div>
         </div>
 
-        {/* Right: Field editor */}
-        <aside className="w-72 bg-white border-l border-gray-200 flex flex-col overflow-hidden shrink-0">
-          <div className="px-4 py-3 border-b border-gray-200">
-            <h2 className="font-semibold text-sm text-gray-700">
-              Fields on page {currentPage}
-              {pageAnnotations.length > 0 && (
-                <span className="ml-2 text-gray-400 font-normal">({pageAnnotations.length})</span>
-              )}
-            </h2>
+        {/* ── Right panel ── */}
+        <aside className="w-72 bg-slate-900 border-l border-slate-800 flex flex-col overflow-hidden shrink-0">
+
+          {/* Panel header */}
+          <div className="px-4 py-3 border-b border-slate-800">
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest">Fields</p>
           </div>
 
-          {/* Annotation list */}
-          {pageAnnotations.length > 0 && (
-            <ul className="border-b border-gray-200 divide-y divide-gray-100 overflow-y-auto max-h-40">
-              {pageAnnotations.map(ann => (
-                <li key={ann.id}>
-                  <button
-                    onClick={() => setSelectedAnnotationId(ann.id === selectedAnnotationId ? null : ann.id)}
-                    className={`w-full text-left px-4 py-2 text-sm truncate ${
-                      ann.id === selectedAnnotationId
-                        ? 'bg-blue-50 text-blue-700 font-medium'
-                        : 'text-gray-700 hover:bg-gray-50'
-                    }`}
-                  >
-                    {ann.name || '(unnamed)'}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
+          {/* Field list */}
+          <div className="overflow-y-auto border-b border-slate-800" style={{ maxHeight: '240px' }}>
+            {pageAnnotations.length === 0 ? (
+              <p className="px-4 py-3 text-xs text-slate-600 italic">
+                No fields on page {currentPage}
+              </p>
+            ) : (
+              <ul>
+                {pageAnnotations.map((ann, i) => (
+                  <li key={ann.id}>
+                    <button
+                      onClick={() => setSelectedAnnotationId(ann.id === selectedAnnotationId ? null : ann.id)}
+                      className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${
+                        ann.id === selectedAnnotationId
+                          ? 'bg-indigo-600/20 border-l-2 border-indigo-500'
+                          : 'border-l-2 border-transparent hover:bg-slate-800'
+                      }`}
+                    >
+                      <span className={`w-5 h-5 rounded flex items-center justify-center text-[10px] font-bold shrink-0 ${
+                        ann.id === selectedAnnotationId ? 'bg-indigo-500 text-white' : 'bg-slate-700 text-slate-400'
+                      }`}>
+                        {i + 1}
+                      </span>
+                      <span className={`text-sm truncate ${
+                        ann.id === selectedAnnotationId ? 'text-indigo-200 font-medium' : 'text-slate-300'
+                      }`}>
+                        {ann.name || '(unnamed)'}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
 
-          {/* Field editor */}
+          {/* Properties panel */}
           <div className="flex-1 overflow-y-auto">
             <Sidebar
               annotation={selectedAnnotation}
