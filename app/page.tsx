@@ -5,6 +5,7 @@ import PdfViewer from './PdfViewer';
 import CanvasOverlay from './CanvasOverlay';
 import Sidebar from './Sidebar';
 import { Annotation } from './types';
+import { runExtraction } from "./api"
 
 // ── Theme tokens ─────────────────────────────────────────────
 function mkTheme(dk: boolean) {
@@ -41,10 +42,11 @@ function mkTheme(dk: boolean) {
     fieldTxtDef:   dk ? 'text-slate-300'                                   : 'text-slate-700',
   };
 }
-
 export default function Home() {
   const [isDark, setIsDark] = useState(true);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [result, setResult] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
   const [numPages, setNumPages] = useState<number | null>(null);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [annotations, setAnnotations] = useState<Record<number, Annotation[]>>({});
@@ -55,6 +57,24 @@ export default function Home() {
   const containerRef = useRef<HTMLDivElement>(null);
 
   const t = mkTheme(isDark);
+
+  const handleExtract = async () => {
+    if (!pdfUrl) {
+      alert("Upload PDF first");
+      return;
+    }
+    setLoading(true);
+    const fields = Object.values(annotations).flat().map(({ id: _id, ...rest }) => ({
+      name: rest.name,
+      bbox: { x: rest.x, y: rest.y, w: rest.width, h: rest.height },
+      pattern: rest.regex,
+      anchor: rest.anchor,
+      page: rest.page,
+    }));
+    const res = await runExtraction(pdfUrl, { fields });
+    setResult(res.result);
+    setLoading(false);
+  };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -200,6 +220,13 @@ export default function Home() {
               <path d="M3 9.5V13h10V9.5M8 2.5v7m0 0-2.5-2.5M8 9.5l2.5-2.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
             Export JSON
+          </button>
+          <button
+            onClick={handleExtract}
+            disabled={loading}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-indigo-600 hover:bg-indigo-500 disabled:opacity-30 disabled:cursor-not-allowed rounded-md transition-colors"
+          >
+            {loading ? 'Running…' : 'Run Extraction'}
           </button>
         </div>
       </header>
