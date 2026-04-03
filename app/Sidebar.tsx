@@ -8,13 +8,31 @@ interface SidebarProps {
   onDelete: (id: string) => void;
 }
 
+const PREDEFINED_FIELDS = [
+  'po_number',
+  'serial_number',
+  'lot_number',
+  'certificate_number',
+  'description',
+  'invoice_number',
+  'date',
+  'quantity',
+  'unit_price',
+  'total_amount',
+  'supplier_name',
+  'part_number',
+];
+
 export default function Sidebar({ annotation, isDark: dk, onUpdate, onDelete }: SidebarProps) {
   const [name, setName] = useState(annotation?.name || '');
+  const [isCustomName, setIsCustomName] = useState(false);
   const [regex, setRegex] = useState(annotation?.regex || '');
   const [anchor, setAnchor] = useState<Annotation['anchor']>(annotation?.anchor || 'top-left');
 
   useEffect(() => {
-    setName(annotation?.name || '');
+    const n = annotation?.name || '';
+    setName(n);
+    setIsCustomName(n !== '' && !PREDEFINED_FIELDS.includes(n));
     setRegex(annotation?.regex || '');
     setAnchor(annotation?.anchor || 'top-left');
   }, [annotation?.id]);
@@ -71,13 +89,35 @@ export default function Sidebar({ annotation, isDark: dk, onUpdate, onDelete }: 
         <div className="space-y-4">
           <div>
             <label className={labelCls}>Field name</label>
-            <input
-              type="text"
-              value={name}
-              onChange={e => setName(e.target.value)}
-              placeholder="e.g. invoice_number"
+            <select
+              value={isCustomName ? '__custom__' : name}
+              onChange={e => {
+                if (e.target.value === '__custom__') {
+                  setIsCustomName(true);
+                  setName('');
+                } else {
+                  setIsCustomName(false);
+                  setName(e.target.value);
+                }
+              }}
               className={inputCls}
-            />
+            >
+              <option value="">— Select a field —</option>
+              {PREDEFINED_FIELDS.map(f => (
+                <option key={f} value={f}>{f}</option>
+              ))}
+              <option value="__custom__">Custom...</option>
+            </select>
+            {isCustomName && (
+              <input
+                type="text"
+                value={name}
+                onChange={e => setName(e.target.value)}
+                placeholder="Enter custom field name"
+                className={`${inputCls} mt-2`}
+                autoFocus
+              />
+            )}
           </div>
 
           <div>
