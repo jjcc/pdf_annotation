@@ -28,6 +28,24 @@ export type SaveSchemaResponse = {
   path: string;
 };
 
+export type SchemaListItem = {
+  schema_id: string;
+  path: string;
+  updated_at: number;
+  field_count: number;
+  page: number;
+  dpi: number;
+  fields: SchemaField[];
+};
+
+export type HistoryItem = {
+  timestamp: string;
+  operation: string;
+  status: string;
+  summary: string;
+  details: Record<string, unknown>;
+};
+
 export type ExtractResponse<Result> = {
   result: Result;
 };
@@ -92,4 +110,20 @@ export async function saveSchema(schema: SchemaPayload): Promise<SaveSchemaRespo
   });
 
   return parseResponse<SaveSchemaResponse>(res);
+}
+
+export async function listSchemas(): Promise<{ items: SchemaListItem[] }> {
+  const res = await fetch(`${API_BASE_URL}/schema/`, {
+    method: 'GET',
+  });
+
+  return parseResponse<{ items: SchemaListItem[] }>(res);
+}
+
+export async function getHistory(limit = 100): Promise<{ items: HistoryItem[] }> {
+  const res = await fetch(`${API_BASE_URL}/history/?limit=${limit}`, {
+    method: 'GET',
+  });
+
+  return parseResponse<{ items: HistoryItem[] }>(res);
 }
