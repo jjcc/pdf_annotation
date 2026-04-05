@@ -1,5 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { Stage, Layer, Rect, Transformer } from 'react-konva';
+import type { KonvaEventObject } from 'konva/lib/Node';
+import type { Layer as KonvaLayer } from 'konva/lib/Layer';
+import type { Stage as KonvaStage } from 'konva/lib/Stage';
+import type { Rect as KonvaRect } from 'konva/lib/shapes/Rect';
+import type { Transformer as KonvaTransformer } from 'konva/lib/shapes/Transformer';
+import type { PDFDocumentProxy, PDFPageProxy } from 'pdfjs-dist/types/src/display/api';
+import { Layer, Rect, Stage, Transformer } from 'react-konva';
 import { Annotation } from './types';
 
 interface CanvasOverlayProps {
@@ -11,10 +17,8 @@ interface CanvasOverlayProps {
   isDrawing: boolean;
   onAnnotationAdded: (annotation: Omit<Annotation, 'id'>) => void;
   onAnnotationUpdated: (annotation: Annotation) => void;
-  onAnnotationDeleted: (id: string) => void;
   onAnnotationSelected: (id: string | null) => void;
   onDrawingToggle: (isDrawing: boolean) => void;
-  containerRef: React.RefObject<HTMLDivElement | null>;
 }
 
 export default function CanvasOverlay({
@@ -29,55 +33,51 @@ export default function CanvasOverlay({
   onAnnotationSelected,
   onDrawingToggle,
 }: CanvasOverlayProps) {
-  const stageRef = useRef<any>(null);
-  const layerRef = useRef<any>(null);
-  const transformerRef = useRef<any>(null);
-
-  // Canvas pixel dimensions (viewport.width/height are already scaled by pdfjs)
-  const [canvasWidth, setCanvasWidth] = useState<number>(800);
-  const [canvasHeight, setCanvasHeight] = useState<number>(1000);
-
-  // Drawing state (in canvas pixel coords)
+  const stageRef = useRef<KonvaStage | null>(null);
+  const layerRef = useRef<KonvaLayer | null>(null);
+  const transformerRef = useRef<KonvaTransformer | null>(null);
+  const [canvasWidth, setCanvasWidth] = useState(800);
+  const [canvasHeight, setCanvasHeight] = useState(1000);
   const [isSelecting, setIsSelecting] = useState(false);
   const [startPos, setStartPos] = useState({ x: 0, y: 0 });
   const [drawRect, setDrawRect] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
 
   useEffect(() => {
     if (!pdfUrl) return;
+
     import('pdfjs-dist').then(({ getDocument }) => {
-      getDocument(pdfUrl).promise.then((pdfDoc: any) => {
-        pdfDoc.getPage(pageNumber).then((page: any) => {
+      getDocument(pdfUrl).promise
+        .then((pdfDoc: PDFDocumentProxy) => pdfDoc.getPage(pageNumber))
+        .then((page: PDFPageProxy) => {
           const viewport = page.getViewport({ scale: zoom });
-          // viewport.width/height are the canvas pixel dimensions — do NOT multiply by scale again
           setCanvasWidth(viewport.width);
           setCanvasHeight(viewport.height);
         });
-      });
     });
-  }, [pdfUrl, pageNumber, zoom]);
+  }, [pageNumber, pdfUrl, zoom]);
 
-  // Attach transformer to selected node
   useEffect(() => {
     if (!transformerRef.current || !layerRef.current) return;
+
     if (selectedAnnotationId) {
       const node = layerRef.current.findOne(`#${selectedAnnotationId}`);
       transformerRef.current.nodes(node ? [node] : []);
     } else {
       transformerRef.current.nodes([]);
     }
-    transformerRef.current.getLayer()?.batchDraw();
-  }, [selectedAnnotationId, annotations]);
 
-  const handleStageMouseDown = (e: any) => {
+    transformerRef.current.getLayer()?.batchDraw();
+  }, [annotations, selectedAnnotationId]);
+
+  const handleStageMouseDown = (e: KonvaEventObject<MouseEvent>) => {
     if (!isDrawing) {
-      // Deselect when clicking empty stage area
       if (e.target === stageRef.current) {
         onAnnotationSelected(null);
       }
       return;
     }
 
-    const pointerPos = stageRef.current.getPointerPosition();
+    const pointerPos = stageRef.current?.getPointerPosition();
     if (!pointerPos) return;
 
     setIsSelecting(true);
@@ -85,10 +85,10 @@ export default function CanvasOverlay({
     setDrawRect({ x: pointerPos.x, y: pointerPos.y, width: 0, height: 0 });
   };
 
-  const handleStageMouseMove = (_e: any) => {
+  const handleStageMouseMove = () => {
     if (!isSelecting || !isDrawing) return;
 
-    const pointerPos = stageRef.current.getPointerPosition();
+    const pointerPos = stageRef.current?.getPointerPosition();
     if (!pointerPos) return;
 
     setDrawRect({
@@ -109,7 +109,7 @@ export default function CanvasOverlay({
       onAnnotationAdded({
         name: `Field ${annotations.length + 1}`,
         regex: '',
-        anchor: 'top-left',
+        anchor: '',
         x: drawRect.x / canvasWidth,
         y: drawRect.y / canvasHeight,
         width: drawRect.width / canvasWidth,
@@ -121,8 +121,8 @@ export default function CanvasOverlay({
     onDrawingToggle(false);
   };
 
-  const handleDragEnd = (e: any, annotation: Annotation) => {
-    const node = e.target;
+  const handleDragEnd = (e: KonvaEventObject<DragEvent>, annotation: Annotation) => {
+    const node = e.target as KonvaRect;
     onAnnotationUpdated({
       ...annotation,
       x: node.x() / canvasWidth,
@@ -130,11 +130,10 @@ export default function CanvasOverlay({
     });
   };
 
-  const handleTransformEnd = (e: any, annotation: Annotation) => {
-    const node = e.target;
+  const handleTransformEnd = (e: KonvaEventObject<Event>, annotation: Annotation) => {
+    const node = e.target as KonvaRect;
     const scaleX = node.scaleX();
     const scaleY = node.scaleY();
-    // Reset scale back to 1 and bake it into width/height
     node.scaleX(1);
     node.scaleY(1);
     onAnnotationUpdated({
@@ -167,7 +166,11 @@ export default function CanvasOverlay({
             width={annotation.width * canvasWidth}
             height={annotation.height * canvasHeight}
             fill="rgba(99, 102, 241, 0.15)"
-            stroke={selectedAnnotationId === annotation.id ? 'rgba(129, 140, 248, 1)' : 'rgba(99, 102, 241, 0.7)'}
+            stroke={
+              selectedAnnotationId === annotation.id
+                ? 'rgba(129, 140, 248, 1)'
+                : 'rgba(99, 102, 241, 0.7)'
+            }
             strokeWidth={2}
             draggable={!isDrawing}
             onClick={() => !isDrawing && onAnnotationSelected(annotation.id)}
@@ -178,7 +181,6 @@ export default function CanvasOverlay({
         <Transformer
           ref={transformerRef}
           boundBoxFunc={(oldBox, newBox) => {
-            // Enforce minimum size
             if (newBox.width < 5 || newBox.height < 5) return oldBox;
             return newBox;
           }}

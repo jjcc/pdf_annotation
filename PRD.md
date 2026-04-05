@@ -18,7 +18,9 @@ Build a frontend app to let users upload a PDF, draw rectangles to define fields
       "name": "field_name",
       "bbox": { "x":0.5, "y":0.5, "w":0.2, "h":0.1 },
       "pattern": "",
-      "anchor": ""
+      "anchor": "",
+      "page":""
+
     }
   ]
 }
